@@ -37,6 +37,7 @@ endFunction
 
 Function Maintenance()
 
+DebugToFile = true
 	RegisterForMenu("BarterMenu")
 
 EndFunction
