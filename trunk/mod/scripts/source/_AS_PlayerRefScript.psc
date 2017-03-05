@@ -9,14 +9,12 @@ GlobalVariable Property _AS_SheafValueMult  Auto
 
 Actor Property PlayerRef Auto
 
-Ammo[] modifiedArrows
-string[] arrowNames
+Ammo[] Property modifiedArrows Auto
+Ammo[] Property tokenedArrows Auto
+
 int arrowsInSheaf
 int sheafValueMult
 ObjectReference vendorRef
-
-int[] playerArrowLeftovers
-int[] vendorArrowLeftovers
 
 
 event OnPlayerLoadGame()
@@ -28,10 +26,6 @@ State Bartering
 
 	Event OnBeginState()
 		
-		modifiedArrows = new Ammo[127]
-		arrowNames = new string[127]
-		playerArrowLeftovers = new int[127]
-		vendorArrowLeftovers = new int[127]
 		arrowsInSheaf = _AS_ArrowsInSheaf.GetValue() As int
 		sheafValueMult = _AS_SheafValueMult.GetValue() As int
 		
@@ -43,7 +37,7 @@ State Bartering
 		endIf
 		
 		string vendorName = vendor.GetLeveledActorBase().GetName()
-		ASQuestScript.DebugStuff("Bartering with " + vendorName + " - swap items", "Bartering with " + vendorName + " - swap items")
+		ASQuestScript.DebugStuff("Bartering with " + vendorName + " - swap items")
 		
 		Faction[] vendorFactions = vendor.GetFactions(-128, 127)
 		int factionCount = vendorFactions.Length
@@ -62,30 +56,27 @@ State Bartering
 		endIf
 		ASQuestScript.DebugStuff(msg, msg)
 		
-		DoArrowSwapsies("Player", playerRef, playerArrowLeftovers)
-		DoArrowSwapsies("Vendor", vendorRef, vendorArrowLeftovers)
+		DoArrowSwapsies("Player", playerRef)
+		DoArrowSwapsies("Vendor", vendorRef)
+		
+		playerRef.AddItem(ASQuestScript._AS_RefreshToken)
 		
 	EndEvent
 
 	Event OnEndState()
 	
+		ASQuestScript.DebugStuff("Ended Bartering, swap items back")
+		
 		if (!vendorRef)
 			ASQuestScript.DebugStuff("Can't find barter container - aborting")
 			return
 		endIf
 		
-		ASQuestScript.DebugStuff("Ended Bartering, swap items back")
+		DoArrowSwapsiesBack("Player", playerRef)
+		DoArrowSwapsiesBack("Vendor", vendorRef)
 		
-		DoArrowSwapsiesBack("Player", playerRef, playerArrowLeftovers)
-		DoArrowSwapsiesBack("Vendor", vendorRef, vendorArrowLeftovers)
+		playerRef.RemoveItem(ASQuestScript._AS_RefreshToken)
 		
-		ResetArrowForms()
-		
-		modifiedArrows = new Ammo[127]
-		arrowNames = new string[127]
-		playerArrowLeftovers = new int[127]
-		vendorArrowLeftovers = new int[127]
-	
 	EndEvent
 
 ;/
@@ -112,86 +103,70 @@ State Bartering
 
 endState
 
-function DoArrowSwapsies(string asName, ObjectReference akContainer, int[] akStashArray)
+function DoArrowSwapsies(string asName, ObjectReference akContainer)
 	int arrowTypeCount = _Q2C_Functions.GetNumItemsWithKeyword(akContainer, VendorItemArrow)
 	ASQuestScript.DebugStuff(asName + ": has " + arrowTypeCount + " arrow types")
-	int iArrow = 0
+	if (arrowTypeCount > 127)
+		arrowTypeCount = 127
+	endIf
 	while (arrowTypeCount)
 		arrowTypeCount -= 1
 		Ammo arrowForm = _Q2C_Functions.GetNthFormWithKeyword(akContainer, VendorItemArrow, arrowTypeCount) as Ammo
+		Ammo tokenForm
 		if (arrowForm)
-			string msg
-			iArrow = modifiedArrows.Find(arrowForm)
+			int iArrow = modifiedArrows.Find(arrowForm)
 			if (iArrow < 0)
 				iArrow = modifiedArrows.Find(None)
 				modifiedArrows[iArrow] = arrowForm
-				arrowNames[iArrow] = arrowForm.GetName()
-				string newName = arrowForm.GetName() + " (sheaf of " + arrowsInSheaf + ")"
-				int newValue = arrowForm.GetGoldValue() * sheafValueMult
-				arrowForm.SetName(newName)
-				arrowForm.SetGoldValue(newValue)
-				msg = asName + ": Form " + arrowForm.GetFormId() + " added at index " + iArrow
-			else
-				msg = asName + ": Form " + arrowForm.GetFormId() + " present at index " + iArrow
+				ASQuestScript.DebugStuff("New arrow type, form " + arrowForm.GetFormId() + ", mapped to token at index " + iArrow)
 			endIf
+			
+			tokenForm = tokenedArrows[iArrow]
+			if (!tokenForm)
+				ASQuestScript.DebugStuff("Blank token at " + iArrow + " - BAD!", "Blank token at " + iArrow + " - BAD!")
+				return
+			endIf
+			
+			; update token data to match real arrow
+			string arrowName = arrowForm.GetName()
+			string tokenModelPath = arrowForm.GetWorldModelPath()
+			int tokenValue = arrowForm.GetGoldValue() * sheafValueMult
+			tokenForm.SetName(arrowName + " (sheaf of " + arrowsInSheaf + ")")
+			tokenForm.SetWorldModelPath(tokenModelPath)
+			tokenForm.SetGoldValue(tokenValue)
 			
 			int arrowCount = akContainer.GetItemCount(arrowForm)
 			int sheafCount = (arrowCount / arrowsInSheaf) as int
-			int stashCount = arrowCount - (sheafCount * arrowsInSheaf)
+			int removeCount = (sheafCount * arrowsInSheaf)
 			
-			if (sheafCount < 1)
-				sheafCount = 1
-				stashCount = 0
-			endIf
-			
-			int removeCount = arrowCount - sheafCount
-			akStashArray[iArrow] = stashCount
-			
-			msg += "; " + arrowCount + " arrows (" + sheafCount + " sheaves); removing " + removeCount + "; stashing " + stashCount
-			ASQuestScript.DebugStuff(msg)
 			akContainer.RemoveItem(arrowForm, removeCount, true)
+			akContainer.AddItem(tokenForm, sheafCount, true)
+			ASQuestScript.DebugStuff(asName + ": " + arrowName + " x" + arrowCount + " (" + sheafCount + " sheaves), removing " + removeCount + " (leaving " + (arrowCount - removeCount) + ")")
 		else
 			ASQuestScript.DebugStuff(asName + ": No Form at position " + arrowTypeCount)
 		endIf
 	endWhile
 endFunction
 
-function ResetArrowForms()
+function DoArrowSwapsiesBack(string asName, ObjectReference akContainer)
 	int iArrow = modifiedArrows.Find(None)
+	ASQuestScript.DebugStuff(asName + ", start at index " + iArrow)
 	while (iArrow)
 		iArrow -= 1
 		Ammo arrowForm = modifiedArrows[iArrow]
-		if (arrowForm)
-			string origName = arrowNames[iArrow]
-			int origValue = (arrowForm.GetGoldValue() / sheafValueMult) as int
-			arrowForm.SetName(origName)
-			arrowForm.SetGoldValue(origValue)
-			ASQuestScript.DebugStuff("Form at index " + iArrow + " reset")
-		else
-			ASQuestScript.DebugStuff("Form at index " + iArrow + " not found - cannot change back :(")
-		endIf
-	endWhile
-endFunction
-
-function DoArrowSwapsiesBack(string asName, ObjectReference akContainer, int[] akStashArray)
-	int iArrow = modifiedArrows.Find(None)
-	while (iArrow)
-		iArrow -= 1
-		Ammo arrowForm = modifiedArrows[iArrow]
-		if (arrowForm)
-			int stashCount = akStashArray[iArrow]
-			int sheafCount = akContainer.GetItemCount(arrowForm)
-			if (stashCount > 0 || sheafCount > 0)
-				int arrowCount = sheafCount * arrowsInSheaf
-				int restoreCount = arrowCount + stashCount - sheafCount
-				
-				ASQuestScript.DebugStuff(asName + ": Form " + arrowForm.GetFormId() + "; " + sheafCount + " sheaves (" + arrowCount + " arrows); stashed " + stashCount + "; restoring " + restoreCount)
+		Ammo tokenForm = tokenedArrows[iArrow]
+		if (arrowForm && tokenForm)
+			int sheafCount = akContainer.GetItemCount(tokenForm)
+			if (sheafCount > 0)
+				int restoreCount = sheafCount * arrowsInSheaf
 				akContainer.AddItem(arrowForm, restoreCount, true)
+				akContainer.RemoveItem(tokenForm, sheafCount, true)
+				ASQuestScript.DebugStuff(asName + ": Form " + arrowForm.GetFormId() + "; " + sheafCount + " sheaves, restoring " + restoreCount + " arrows")
 			else
 				ASQuestScript.DebugStuff(asName + ": No arrows of Id " + arrowForm.GetFormId() + " to restore (index " + iArrow + ")")
 			endIf
 		else
-			ASQuestScript.DebugStuff(asName + ": Form at index " + iArrow + " not found - cannot swap items")
+			ASQuestScript.DebugStuff(asName + ": Form or token at index " + iArrow + " not found (arrow " + arrowForm + ", token " + tokenForm + ") - cannot swap items back")
 		endIf
 	endWhile
 endFunction

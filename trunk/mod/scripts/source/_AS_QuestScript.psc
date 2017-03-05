@@ -99,3 +99,6 @@ function DebugStuff(string asLogMsg, string asScreenMsg = "", bool abFpPrefix = 
 
 endFunction
 
+
+MiscObject Property _AS_RefreshToken  Auto  
+{This only exists so it can be added to the inventory to force a SkyUI refresh}
