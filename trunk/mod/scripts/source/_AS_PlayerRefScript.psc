@@ -13,7 +13,7 @@ Ammo[] Property modifiedArrows Auto
 Ammo[] Property tokenedArrows Auto
 
 int arrowsInSheaf
-int sheafValueMult
+float sheafValueMult
 ObjectReference vendorRef
 
 
@@ -27,12 +27,12 @@ State Bartering
 	Event OnBeginState()
 		
 		arrowsInSheaf = _AS_ArrowsInSheaf.GetValue() As int
-		sheafValueMult = _AS_SheafValueMult.GetValue() As int
+		sheafValueMult = _AS_SheafValueMult.GetValue() As float
 		
 		Actor vendor = ASQuestScript.GetPlayerDialogueTarget()
 		
 		if (!vendor)
-			ASQuestScript.DebugStuff("Can't find barter target - aborting")
+			ASQuestScript.DebugStuff("Can't find barter target - aborting", "Can't find barter target; arrows will not be grouped", true)
 			return
 		endIf
 		
@@ -59,7 +59,7 @@ State Bartering
 		DoArrowSwapsies("Player", playerRef)
 		DoArrowSwapsies("Vendor", vendorRef)
 		
-		playerRef.AddItem(ASQuestScript._AS_RefreshToken)
+		playerRef.AddItem(ASQuestScript._AS_RefreshToken, 1, true)
 		
 	EndEvent
 
@@ -75,7 +75,7 @@ State Bartering
 		DoArrowSwapsiesBack("Player", playerRef)
 		DoArrowSwapsiesBack("Vendor", vendorRef)
 		
-		playerRef.RemoveItem(ASQuestScript._AS_RefreshToken)
+		playerRef.RemoveItem(ASQuestScript._AS_RefreshToken, 1, true)
 		
 	EndEvent
 
@@ -130,7 +130,7 @@ function DoArrowSwapsies(string asName, ObjectReference akContainer)
 			; update token data to match real arrow
 			string arrowName = arrowForm.GetName()
 			string tokenModelPath = arrowForm.GetWorldModelPath()
-			int tokenValue = arrowForm.GetGoldValue() * sheafValueMult
+			int tokenValue = (arrowForm.GetGoldValue() * arrowsInSheaf * sheafValueMult) as int
 			tokenForm.SetName(arrowName + " (sheaf of " + arrowsInSheaf + ")")
 			tokenForm.SetWorldModelPath(tokenModelPath)
 			tokenForm.SetGoldValue(tokenValue)
@@ -161,9 +161,9 @@ function DoArrowSwapsiesBack(string asName, ObjectReference akContainer)
 				int restoreCount = sheafCount * arrowsInSheaf
 				akContainer.AddItem(arrowForm, restoreCount, true)
 				akContainer.RemoveItem(tokenForm, sheafCount, true)
-				ASQuestScript.DebugStuff(asName + ": Form " + arrowForm.GetFormId() + "; " + sheafCount + " sheaves, restoring " + restoreCount + " arrows")
+				ASQuestScript.DebugStuff(asName + ": " + arrowForm.GetName() + " x" + sheafCount + " sheaves, restoring " + restoreCount + " arrows")
 			else
-				ASQuestScript.DebugStuff(asName + ": No arrows of Id " + arrowForm.GetFormId() + " to restore (index " + iArrow + ")")
+				ASQuestScript.DebugStuff(asName + ": No " + arrowForm.GetName() + " to restore (index " + iArrow + ")")
 			endIf
 		else
 			ASQuestScript.DebugStuff(asName + ": Form or token at index " + iArrow + " not found (arrow " + arrowForm + ", token " + tokenForm + ") - cannot swap items back")

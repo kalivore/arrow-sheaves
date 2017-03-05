@@ -2,10 +2,15 @@ Scriptname _AS_QuestScript extends Quest
 
 _AS_PlayerRefScript Property ASPlayerRefScript  Auto  
 
+MiscObject Property _AS_RefreshToken  Auto  
+{This only exists so it can be added to the inventory to force a SkyUI refresh}
+
+
 float Property CurrentVersion = 0.0100 AutoReadonly
 bool Property DebugToFile Auto
 
 float previousVersion
+
 
 event OnInit()
 	Update()
@@ -38,6 +43,9 @@ endFunction
 Function Maintenance()
 
 DebugToFile = true
+
+	Debug.OpenUserLog("ArrowSheaves")
+
 	RegisterForMenu("BarterMenu")
 
 EndFunction
@@ -60,10 +68,10 @@ Actor function GetPlayerDialogueTarget()
 
 	Actor kPlayerDialogueTarget
 	Actor kPlayerRef = Game.GetPlayer()
-	int iLoopCount = 10
+	int iLoopCount = 15
 	while iLoopCount > 0
 		iLoopCount -= 1
-		kPlayerDialogueTarget = Game.FindRandomActorFromRef(kPlayerRef , 200.0)
+		kPlayerDialogueTarget = Game.FindRandomActorFromRef(kPlayerRef , 300.0)
 		if kPlayerDialogueTarget != kPlayerRef && kPlayerDialogueTarget.IsInDialogueWithPlayer() 
 			return kPlayerDialogueTarget
 		endIf
@@ -85,20 +93,16 @@ string function GetVersionAsString(float afVersion)
 
 endFunction
 
-function DebugStuff(string asLogMsg, string asScreenMsg = "", bool abFpPrefix = false)
+function DebugStuff(string asLogMsg, string asScreenMsg = "", bool abPrefix = false)
 
 	if (DebugToFile)
-		Debug.Trace("[ArrowSheaves] " + asLogMsg)
+		Debug.TraceUser("ArrowSheaves", asLogMsg)
 	endIf
 	if (asScreenMsg != "")
-		if (abFpPrefix)
+		if (abPrefix)
 			asScreenMsg = "Arrow Sheaves - " + asScreenMsg
 		endIf
 		Debug.Notification(asScreenMsg)
 	endIf
 
 endFunction
-
-
-MiscObject Property _AS_RefreshToken  Auto  
-{This only exists so it can be added to the inventory to force a SkyUI refresh}
