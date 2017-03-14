@@ -2,18 +2,18 @@ Scriptname _AS_QuestScript extends Quest
 
 _AS_PlayerRefScript Property ASPlayerRefScript  Auto  
 
-MiscObject Property _AS_RefreshToken  Auto  
-{This only exists so it can be added to the inventory to force a SkyUI refresh}
-
 
 float Property CurrentVersion = 0.0100 AutoReadonly
-bool Property DebugToFile Auto
-
 float previousVersion
+
+bool Property DebugToFile Auto
+GlobalVariable Property _AS_DebugToFile  Auto
 
 
 event OnInit()
+
 	Update()
+
 endEvent
 
 function Update()
@@ -42,11 +42,11 @@ endFunction
 
 Function Maintenance()
 
-DebugToFile = true
-
 	Debug.OpenUserLog("ArrowSheaves")
 
 	RegisterForMenu("BarterMenu")
+	
+	DebugToFile = _AS_DebugToFile.GetValue() as bool
 
 EndFunction
 
@@ -62,24 +62,6 @@ event OnMenuClose(String MenuName)
 		ASPlayerRefScript.GoToState("")
 	EndIf
 endEvent
-
-
-Actor function GetPlayerDialogueTarget()
-
-	Actor kPlayerDialogueTarget
-	Actor kPlayerRef = Game.GetPlayer()
-	int iLoopCount = 15
-	while iLoopCount > 0
-		iLoopCount -= 1
-		kPlayerDialogueTarget = Game.FindRandomActorFromRef(kPlayerRef , 300.0)
-		if kPlayerDialogueTarget != kPlayerRef && kPlayerDialogueTarget.IsInDialogueWithPlayer() 
-			return kPlayerDialogueTarget
-		endIf
-	endWhile
-	
-	return None
-	
-endFunction
 
 
 string function GetVersionAsString(float afVersion)

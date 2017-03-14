@@ -2,16 +2,21 @@ Scriptname _AS_PlayerRefScript extends ReferenceAlias
 
 _AS_QuestScript Property ASQuestScript  Auto
 
-Keyword Property VendorItemArrow  Auto
-
 GlobalVariable Property _AS_ArrowsInSheaf  Auto  
 GlobalVariable Property _AS_SheafValueMult  Auto  
 
+
+Keyword Property VendorItemArrow  Auto
 Actor Property PlayerRef Auto
+MiscObject Property _AS_RefreshToken  Auto  
+{This only exists so it can be added to the inventory to force a SkyUI refresh}
+
 
 Ammo[] Property modifiedArrows Auto
 Ammo[] Property tokenedArrows Auto
 
+
+; internal
 int arrowsInSheaf
 float sheafValueMult
 ObjectReference vendorRef
@@ -26,10 +31,10 @@ State Bartering
 
 	Event OnBeginState()
 		
-		arrowsInSheaf = _AS_ArrowsInSheaf.GetValue() As int
-		sheafValueMult = _AS_SheafValueMult.GetValue() As float
+		arrowsInSheaf = _AS_ArrowsInSheaf.GetValue() as int
+		sheafValueMult = _AS_SheafValueMult.GetValue() as float
 		
-		Actor vendor = ASQuestScript.GetPlayerDialogueTarget()
+		Actor vendor = GetPlayerDialogueTarget()
 		
 		if (!vendor)
 			ASQuestScript.DebugStuff("Can't find barter target - aborting", "Can't find barter target; arrows will not be grouped", true)
@@ -54,12 +59,12 @@ State Bartering
 			vendorRef = vendor
 			msg = "Couldn't find faction container, using vendor directly"
 		endIf
-		ASQuestScript.DebugStuff(msg, msg)
+		ASQuestScript.DebugStuff(msg)
 		
 		DoArrowSwapsies("Player", playerRef)
 		DoArrowSwapsies("Vendor", vendorRef)
 		
-		playerRef.AddItem(ASQuestScript._AS_RefreshToken, 1, true)
+		playerRef.AddItem(_AS_RefreshToken, 1, true)
 		
 	EndEvent
 
@@ -75,7 +80,7 @@ State Bartering
 		DoArrowSwapsiesBack("Player", playerRef)
 		DoArrowSwapsiesBack("Vendor", vendorRef)
 		
-		playerRef.RemoveItem(ASQuestScript._AS_RefreshToken, 1, true)
+		playerRef.RemoveItem(_AS_RefreshToken, 1, true)
 		
 	EndEvent
 
@@ -103,6 +108,23 @@ State Bartering
 
 endState
 
+
+Actor function GetPlayerDialogueTarget()
+
+	Actor kPlayerDialogueTarget
+	int iLoopCount = 15
+	while iLoopCount > 0
+		iLoopCount -= 1
+		kPlayerDialogueTarget = Game.FindRandomActorFromRef(playerRef, 300.0)
+		if kPlayerDialogueTarget != playerRef && kPlayerDialogueTarget.IsInDialogueWithPlayer() 
+			return kPlayerDialogueTarget
+		endIf
+	endWhile
+	
+	return None
+	
+endFunction
+
 function DoArrowSwapsies(string asName, ObjectReference akContainer)
 	int arrowTypeCount = _Q2C_Functions.GetNumItemsWithKeyword(akContainer, VendorItemArrow)
 	ASQuestScript.DebugStuff(asName + ": has " + arrowTypeCount + " arrow types")
@@ -129,11 +151,20 @@ function DoArrowSwapsies(string asName, ObjectReference akContainer)
 			
 			; update token data to match real arrow
 			string arrowName = arrowForm.GetName()
-			string tokenModelPath = arrowForm.GetWorldModelPath()
-			int tokenValue = (arrowForm.GetGoldValue() * arrowsInSheaf * sheafValueMult) as int
+			string arrowModelPath = arrowForm.GetWorldModelPath()
+			float arrowWeight = arrowForm.GetWeight()
+			int arrowValue = (arrowForm.GetGoldValue() * arrowsInSheaf * sheafValueMult) as int
+			bool arrowIsBolt = arrowForm.IsBolt()
+			Projectile arrowProjectile = arrowForm.GetProjectile()
+			float arrowDamage = arrowForm.GetDamage()
+			
 			tokenForm.SetName(arrowName + " (sheaf of " + arrowsInSheaf + ")")
-			tokenForm.SetWorldModelPath(tokenModelPath)
-			tokenForm.SetGoldValue(tokenValue)
+			tokenForm.SetWorldModelPath(arrowModelPath)
+			tokenForm.SetWeight(arrowWeight)
+			tokenForm.SetGoldValue(arrowValue)
+			_Q2C_Functions.SetIsBolt(tokenForm, arrowIsBolt)
+			_Q2C_Functions.SetProjectile(tokenForm, arrowProjectile)
+			_Q2C_Functions.SetDamage(tokenForm, arrowDamage)
 			
 			int arrowCount = akContainer.GetItemCount(arrowForm)
 			int sheafCount = (arrowCount / arrowsInSheaf) as int
