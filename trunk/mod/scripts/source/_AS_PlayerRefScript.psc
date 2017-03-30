@@ -1,14 +1,15 @@
 Scriptname _AS_PlayerRefScript extends ReferenceAlias  
 
-_AS_QuestScript Property ASQuestScript  Auto
+_AS_QuestScript Property ASQuestScript Auto
 
-GlobalVariable Property _AS_ArrowsInSheaf  Auto  
-GlobalVariable Property _AS_SheafValueMult  Auto  
+GlobalVariable Property _AS_ArrowsInSheaf Auto  
+GlobalVariable Property _AS_SheafValueMult Auto  
 
 
-Keyword Property VendorItemArrow  Auto
+Keyword Property VendorItemArrow Auto
+Perk Property _KLV_StashRefPerk Auto
 Actor Property PlayerRef Auto
-MiscObject Property _AS_RefreshToken  Auto  
+MiscObject Property _AS_RefreshToken Auto  
 {This only exists so it can be added to the inventory to force a SkyUI refresh}
 
 
@@ -19,22 +20,54 @@ Ammo[] Property tokenedArrows Auto
 ; internal
 int arrowsInSheaf
 float sheafValueMult
-ObjectReference vendorRef
+Actor vendor
+ObjectReference vendorContainerRef
 
+
+event OnInit()
+	Maintenance()
+endEvent
 
 event OnPlayerLoadGame()
 	ASQuestScript.Maintenance()
+	Maintenance()
 endEvent
 
+event OnContainerActivated(Form akTargetRef)
+	vendor = akTargetRef as Actor
+	if (vendor)
+		ASQuestScript.DebugStuff("Vendor set to " + vendor.GetLeveledActorBase().GetName())
+	else
+		ASQuestScript.DebugStuff("Could not set vendor")
+	endIf
+endEvent
+
+event OnMenuOpen(String MenuName)
+	If MenuName == "BarterMenu"
+		GoToState("Bartering")
+	EndIf
+endEvent
+
+function Maintenance()
+	if (!playerRef.HasPerk(_KLV_StashRefPerk))
+		playerRef.AddPerk(_KLV_StashRefPerk)
+	endIf
+	RegisterForModEvent("_KLV_ContainerActivated", "OnContainerActivated")
+	RegisterForMenu("BarterMenu")
+endFunction
 
 State Bartering
+
+	event OnMenuClose(String MenuName)
+		If MenuName == "BarterMenu"
+			GoToState("")
+		EndIf
+	endEvent
 
 	Event OnBeginState()
 		
 		arrowsInSheaf = _AS_ArrowsInSheaf.GetValue() as int
 		sheafValueMult = _AS_SheafValueMult.GetValue() as float
-		
-		Actor vendor = GetPlayerDialogueTarget()
 		
 		if (!vendor)
 			ASQuestScript.DebugStuff("Can't find barter target - aborting", "Can't find barter target; arrows will not be grouped", true)
@@ -44,25 +77,25 @@ State Bartering
 		string vendorName = vendor.GetLeveledActorBase().GetName()
 		ASQuestScript.DebugStuff("Bartering with " + vendorName + " - swap items")
 		
-		Faction[] vendorFactions = vendor.GetFactions(-128, 127)
+		Faction[] vendorFactions = vendor.GetFactions(0, 127)
 		int factionCount = vendorFactions.Length
-		vendorRef = None
-		while (factionCount && !vendorRef)
+		vendorContainerRef = None
+		while (factionCount && !vendorContainerRef)
 			factionCount -= 1
-			vendorRef = vendorFactions[factionCount].GetMerchantContainer()
+			vendorContainerRef = vendorFactions[factionCount].GetMerchantContainer()
 		endWhile
 		
 		string msg
-		if (vendorRef)
-			msg = "Found faction container " + vendorRef.GetFormId()
+		if (vendorContainerRef)
+			msg = "Found faction container " + vendorContainerRef.GetFormId()
 		else
-			vendorRef = vendor
+			vendorContainerRef = vendor
 			msg = "Couldn't find faction container, using vendor directly"
 		endIf
 		ASQuestScript.DebugStuff(msg)
 		
 		DoArrowSwapsies("Player", playerRef)
-		DoArrowSwapsies("Vendor", vendorRef)
+		DoArrowSwapsies("Vendor", vendorContainerRef)
 		
 		playerRef.AddItem(_AS_RefreshToken, 1, true)
 		
@@ -72,58 +105,20 @@ State Bartering
 	
 		ASQuestScript.DebugStuff("Ended Bartering, swap items back")
 		
-		if (!vendorRef)
+		if (!vendorContainerRef)
 			ASQuestScript.DebugStuff("Can't find barter container - aborting")
 			return
 		endIf
 		
 		DoArrowSwapsiesBack("Player", playerRef)
-		DoArrowSwapsiesBack("Vendor", vendorRef)
+		DoArrowSwapsiesBack("Vendor", vendorContainerRef)
 		
 		playerRef.RemoveItem(_AS_RefreshToken, 1, true)
 		
 	EndEvent
 
-;/
-	Event OnItemAdded(Form akBaseItem, int aiItemCount, ObjectReference akItemReference, ObjectReference akSourceContainer)
-		string name = akBaseItem.GetName()
-		string open = ", not bartering, THIS SHOULD NEVER HAPPEN!"
-		bool isArrow = akBaseItem.HasKeyword(VendorItemArrow)
-		string sArrow = ""
-		if (UI.IsMenuOpen("BarterMenu"))
-			open = ", IS bartering"
-		endIf
-		if (isArrow)
-			sArrow = " (arrow) "
-		endIf
-		if !akSourceContainer
-;			Debug.Notification("Got " + aiItemCount + "x " + name + sArrow + " from the world" + open)
-		elseif akSourceContainer == Game.GetPlayer()
-;			Debug.Notification("The player gave me " + aiItemCount + "x " + name + sArrow + open)
-		else
-;			Debug.Notification("Got " + aiItemCount + "x " + name + sArrow + " from another container" + open)
-		endIf
-	endEvent
-/;
-
 endState
 
-
-Actor function GetPlayerDialogueTarget()
-
-	Actor kPlayerDialogueTarget
-	int iLoopCount = 15
-	while iLoopCount > 0
-		iLoopCount -= 1
-		kPlayerDialogueTarget = Game.FindRandomActorFromRef(playerRef, 300.0)
-		if kPlayerDialogueTarget != playerRef && kPlayerDialogueTarget.IsInDialogueWithPlayer() 
-			return kPlayerDialogueTarget
-		endIf
-	endWhile
-	
-	return None
-	
-endFunction
 
 function DoArrowSwapsies(string asName, ObjectReference akContainer)
 	int arrowTypeCount = _Q2C_Functions.GetNumItemsWithKeyword(akContainer, VendorItemArrow)

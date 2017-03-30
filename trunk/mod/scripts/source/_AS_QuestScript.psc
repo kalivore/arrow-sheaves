@@ -1,8 +1,5 @@
 Scriptname _AS_QuestScript extends Quest  
 
-_AS_PlayerRefScript Property ASPlayerRefScript  Auto  
-
-
 float Property CurrentVersion = 0.0100 AutoReadonly
 float previousVersion
 
@@ -44,24 +41,10 @@ Function Maintenance()
 
 	Debug.OpenUserLog("ArrowSheaves")
 
-	RegisterForMenu("BarterMenu")
-	
 	DebugToFile = _AS_DebugToFile.GetValue() as bool
 
 EndFunction
 
-
-event OnMenuOpen(String MenuName)
-	If MenuName == "BarterMenu"
-		ASPlayerRefScript.GoToState("Bartering")
-	EndIf
-endEvent
-
-event OnMenuClose(String MenuName)
-	If MenuName == "BarterMenu"
-		ASPlayerRefScript.GoToState("")
-	EndIf
-endEvent
 
 
 string function GetVersionAsString(float afVersion)
