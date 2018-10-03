@@ -1,9 +1,0 @@
-Version 0.02.00
-
-Just bringing the Inventory Functions plugin & script in line with the new 3.02 version 
-
-
-
-Version 0.01.00
-
-Initial release
